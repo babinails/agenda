@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agenda de Estética</title>
+<style>
+:root{--bg:#fbf6f4;--card:#fff;--tx:#3a2a2e;--mut:#8a7479;--ac:#c0577a;--ac2:#f6e3ea;--bd:#ecdde1;--ok:#3d8b6a;--bad:#b4474f;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1e1619;--card:#2a2024;--tx:#f3e8eb;--mut:#b09ba0;--ac:#e07a9d;--ac2:#3b2830;--bd:#3d2e33;--ok:#5fc19a;--bad:#e8808a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1e1619;--card:#2a2024;--tx:#f3e8eb;--mut:#b09ba0;--ac:#e07a9d;--ac2:#3b2830;--bd:#3d2e33;--ok:#5fc19a;--bad:#e8808a;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 Georgia,"Iowan Old Style",serif}
+button,input,select,textarea{font:inherit;color:inherit}
+main{max-width:640px;margin:0 auto;padding:12px 14px 96px}
+h1{font-size:1.35rem;margin:6px 0 10px;color:var(--ac);letter-spacing:.2px}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav button{flex:1;padding:13px 4px;background:none;border:0;color:var(--mut);font-size:.95rem}
+nav button.on{color:var(--ac);font-weight:bold}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.bar input{flex:1;min-width:0}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--card)}
+textarea{min-height:130px;resize:vertical}
+label{display:block;font-size:.82rem;color:var(--mut);margin:10px 0 4px}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:10px 14px;white-space:nowrap;cursor:pointer}
+.btn.ghost{background:var(--ac2);color:var(--ac)}
+.btn.del{background:none;color:var(--bad);border:1px solid var(--bad)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px 14px;margin-bottom:10px;cursor:pointer}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.t{font-weight:bold;color:var(--ac);min-width:3.2em}
+.mut{color:var(--mut);font-size:.88rem}
+.tag{font-size:.75rem;padding:2px 8px;border-radius:99px;background:var(--ac2);color:var(--ac)}
+.tag.feita{background:#dff3ea;color:var(--ok)}.tag.cancelada{background:#f7e0e2;color:var(--bad)}
+.empty{text-align:center;color:var(--mut);padding:36px 10px}
+dialog{border:0;border-radius:16px;padding:16px;width:min(560px,94vw);background:var(--bg);color:var(--tx);max-height:92vh}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.acts{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.acts .btn{flex:1}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+a{color:var(--ac)}
+.sum{display:flex;gap:10px;margin-bottom:12px}
+.sum div{flex:1;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:8px 10px;text-align:center}
+.sum b{display:block;font-size:1.15rem;color:var(--ac)}
+</style>
+</head>
+<body>
+<main>
+<h1>✿ Agenda de Estética</h1>
+<div id="v"></div>
+</main>
+<nav>
+<button data-t="agenda" class="on">Agenda</button>
+<button data-t="clientes">Clientes</button>
+<button data-t="mais">Cópia</button>
+</nav>
+<dialog id="dlg"></dialog>
+
+<script>
+var KEY="agenda-estetica-v1",S={clients:[],appts:[]},tab="agenda",q="";
+var iso=function(d){return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+var day=iso(new Date());
+function load(){try{var r=localStorage.getItem(KEY);if(r){var o=JSON.parse(r);if(o&&o.clients&&o.appts)S=o}}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function uid(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function cl(id){return S.clients.filter(function(c){return c.id===id})[0]}
+function fmtDay(s){var d=new Date(s+"T12:00");return d.toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long"})}
+function eur(n){return n?(Number(n).toFixed(2).replace(".",",")+" €"):""}
+function waLink(c,a){if(!c||!c.phone)return"";var p=c.phone.replace(/[^\d+]/g,"");if(p.length===9)p="351"+p;p=p.replace("+","");
+var m="Olá "+c.name.split(" ")[0]+"! Só para lembrar a sua marcação "+(a?("a "+fmtDay(a.date)+" às "+a.time):"")+". Até já!";
+return "https://wa.me/"+p+"?text="+encodeURIComponent(m)}
+
+function render(){
+ var v=document.getElementById("v");
+ document.querySelectorAll("nav button").forEach(function(b){b.classList.toggle("on",b.dataset.t===tab)});
+ if(tab==="agenda")v.innerHTML=agenda();else if(tab==="clientes")v.innerHTML=clientes();else v.innerHTML=mais();
+ bind();
+}
+function agenda(){
+ var l=S.appts.filter(function(a){return a.date===day}).sort(function(a,b){return a.time<b.time?-1:1});
+ var tot=l.filter(function(a){return a.status!=="cancelada"}).reduce(function(s,a){return s+(Number(a.price)||0)},0);
+ var h='<div class="bar"><button class="btn ghost" data-act="prev">‹</button><input type="date" id="dd" value="'+day+'"><button class="btn ghost" data-act="next">›</button><button class="btn ghost" data-act="hoje">Hoje</button></div>';
+ h+='<div class="mut" style="margin:-4px 0 10px;text-transform:capitalize">'+fmtDay(day)+'</div>';
+ h+='<div class="sum"><div><b>'+l.filter(function(a){return a.status!=="cancelada"}).length+'</b><span class="mut">marcações</span></div><div><b>'+(eur(tot)||"0 €")+'</b><span class="mut">previsto</span></div></div>';
+ if(!l.length)h+='<div class="empty">Sem marcações neste dia.</div>';
+ l.forEach(function(a){var c=cl(a.clientId),w=waLink(c,a);
+  h+='<div class="card" data-appt="'+a.id+'"><div class="row"><span><span class="t">'+esc(a.time)+'</span> '+esc(c?c.name:"?")+'</span><span class="tag '+a.status+'">'+a.status+'</span></div><div class="mut">'+esc(a.service)+(a.price?" · "+eur(a.price):"")+(a.dur?" · "+a.dur+" min":"")+'</div>'+(a.notes?'<div class="mut">📝 '+esc(a.notes)+'</div>':'')+(w?'<div style="margin-top:6px"><a href="'+w+'" target="_blank" rel="noopener" data-stop>Enviar lembrete (WhatsApp)</a></div>':'')+'</div>'});
+ return h+'<div class="acts"><button class="btn" data-act="newappt">+ Nova marcação</button></div>';
+}
+function clientes(){
+ var l=S.clients.filter(function(c){return (c.name+" "+(c.phone||"")).toLowerCase().indexOf(q.toLowerCase())>-1}).sort(function(a,b){return a.name.localeCompare(b.name,"pt")});
+ var h='<div class="bar"><input id="q" placeholder="Pesquisar cliente…" value="'+esc(q)+'"><button class="btn" data-act="newcli">+ Cliente</button></div>';
+ if(!l.length)h+='<div class="empty">'+(S.clients.length?"Nenhum resultado.":"Ainda sem clientes. Adiciona a primeira!")+'</div>';
+ l.forEach(function(c){var n=S.appts.filter(function(a){return a.clientId===c.id}).length;
+  h+='<div class="card" data-cli="'+c.id+'"><div class="row"><b>'+esc(c.name)+'</b><span class="mut">'+n+' marc.</span></div><div class="mut">'+esc(c.phone||"sem telemóvel")+'</div>'+(c.notes?'<div class="mut" style="margin-top:4px">'+esc(c.notes.slice(0,90))+(c.notes.length>90?"…":"")+'</div>':'')+'</div>'});
+ return h;
+}
+function mais(){
+ return '<div class="card" style="cursor:default"><b>Cópia de segurança</b><p class="mut">Os dados ficam guardados só neste telemóvel/navegador. Guarda uma cópia de vez em quando, para não perderes nada se mudares de aparelho ou limpares o navegador.</p><div class="acts"><button class="btn" data-act="exp">Gerar cópia</button><button class="btn ghost" data-act="imp">Restaurar cópia</button></div><textarea id="bk" placeholder="A cópia aparece aqui. Para restaurar, cola aqui o texto e carrega em Restaurar."></textarea></div>';
+}
+function bind(){
+ var v=document.getElementById("v");
+ v.querySelectorAll("[data-stop]").forEach(function(a){a.addEventListener("click",function(e){e.stopPropagation()})});
+ v.querySelectorAll("[data-appt]").forEach(function(e){e.addEventListener("click",function(){apptDlg(e.dataset.appt)})});
+ v.querySelectorAll("[data-cli]").forEach(function(e){e.addEventListener("click",function(){cliDlg(e.dataset.cli)})});
+ var dd=document.getElementById("dd");if(dd)dd.addEventListener("change",function(){if(dd.value){day=dd.value;render()}});
+ var qq=document.getElementById("q");if(qq)qq.addEventListener("input",function(){q=qq.value;var p=qq.selectionStart;render();var n=document.getElementById("q");n.focus();n.setSelectionRange(p,p)});
+ v.querySelectorAll("[data-act]").forEach(function(b){b.addEventListener("click",function(){act(b.dataset.act)})});
+}
+function shift(n){var d=new Date(day+"T12:00");d.setDate(d.getDate()+n);day=iso(d);render()}
+function act(a){
+ if(a==="prev")shift(-1);else if(a==="next")shift(1);else if(a==="hoje"){day=iso(new Date());render()}
+ else if(a==="newappt")apptDlg();else if(a==="newcli")cliDlg();
+ else if(a==="exp"){document.getElementById("bk").value=JSON.stringify(S)}
+ else if(a==="imp"){try{var o=JSON.parse(document.getElementById("bk").value);if(!o.clients||!o.appts)throw 0;if(confirm("Substituir todos os dados atuais por esta cópia?")){S=o;save();render()}}catch(e){alert("Texto de cópia inválido.")}}
+}
+var dlg=document.getElementById("dlg");
+function closeD(){dlg.close()}
+function apptDlg(id){
+ var a=id?S.appts.filter(function(x){return x.id===id})[0]:{date:day,time:"10:00",service:"",price:"",dur:60,status:"marcada",notes:""};
+ var c=a.clientId?cl(a.clientId):null;
+ dlg.innerHTML='<h3 style="margin:0;color:var(--ac)">'+(id?"Editar marcação":"Nova marcação")+'</h3><label>Cliente (escreve um nome novo para a criar)</label><input id="fc" list="cl" value="'+esc(c?c.name:"")+'" autocomplete="off"><datalist id="cl">'+S.clients.map(function(x){return'<option value="'+esc(x.name)+'">'}).join("")+'</datalist><div class="g2"><div><label>Data</label><input type="date" id="fd" value="'+a.date+'"></div><div><label>Hora</label><input type="time" id="ft" value="'+a.time+'"></div></div><label>Serviço</label><input id="fs" value="'+esc(a.service)+'" placeholder="Limpeza de pele, depilação, manicure…"><div class="g2"><div><label>Preço (€)</label><input type="number" step="0.5" id="fp" value="'+esc(a.price)+'"></div><div><label>Duração (min)</label><input type="number" step="5" id="fu" value="'+esc(a.dur)+'"></div></div><label>Estado</label><select id="fe"><option>marcada</option><option>feita</option><option>cancelada</option></select><label>Notas</label><textarea id="fn" style="min-height:70px">'+esc(a.notes)+'</textarea><div class="acts"><button class="btn" id="ok">Guardar</button><button class="btn ghost" id="no">Fechar</button>'+(id?'<button class="btn del" id="rm">Apagar</button>':'')+'</div>';
+ dlg.showModal();document.getElementById("fe").value=a.status;
+ document.getElementById("no").onclick=closeD;
+ document.getElementById("ok").onclick=function(){
+  var nm=document.getElementById("fc").value.trim();if(!nm){alert("Indica o cliente.");return}
+  var c2=S.clients.filter(function(x){return x.name.toLowerCase()===nm.toLowerCase()})[0];
+  if(!c2){c2={id:uid(),name:nm,phone:"",notes:""};S.clients.push(c2)}
+  var o={id:a.id||uid(),clientId:c2.id,date:document.getElementById("fd").value,time:document.getElementById("ft").value,service:document.getElementById("fs").value.trim(),price:document.getElementById("fp").value,dur:document.getElementById("fu").value,status:document.getElementById("fe").value,notes:document.getElementById("fn").value.trim()};
+  if(id)S.appts=S.appts.map(function(x){return x.id===id?o:x});else S.appts.push(o);
+  day=o.date;save();closeD();render()};
+ if(id)document.getElementById("rm").onclick=function(){if(confirm("Apagar esta marcação?")){S.appts=S.appts.filter(function(x){return x.id!==id});save();closeD();render()}};
+}
+function cliDlg(id){
+ var c=id?cl(id):{name:"",phone:"",notes:""};
+ var hist=id?S.appts.filter(function(a){return a.clientId===id}).sort(function(a,b){return (a.date+a.time)<(b.date+b.time)?1:-1}):[];
+ dlg.innerHTML='<h3 style="margin:0;color:var(--ac)">'+(id?"Cliente":"Nova cliente")+'</h3><label>Nome</label><input id="cn" value="'+esc(c.name)+'"><label>Telemóvel</label><input id="cp" type="tel" value="'+esc(c.phone)+'"><label>Notas (alergias, preferências, produtos, tratamentos…)</label><textarea id="cm">'+esc(c.notes)+'</textarea>'+(hist.length?'<label>Histórico</label>'+hist.map(function(a){return'<div class="mut">'+a.date.split("-").reverse().join("/")+" · "+esc(a.service||"—")+" · "+a.status+(a.price?" · "+eur(a.price):"")+'</div>'}).join(""):'')+'<div class="acts"><button class="btn" id="ok">Guardar</button><button class="btn ghost" id="no">Fechar</button>'+(id?'<button class="btn ghost" id="na">+ Marcação</button><button class="btn del" id="rm">Apagar</button>':'')+'</div>';
+ dlg.showModal();
+ document.getElementById("no").onclick=closeD;
+ document.getElementById("ok").onclick=function(){
+  var nm=document.getElementById("cn").value.trim();if(!nm){alert("Indica o nome.");return}
+  var o={id:c.id||uid(),name:nm,phone:document.getElementById("cp").value.trim(),notes:document.getElementById("cm").value.trim()};
+  if(id)S.clients=S.clients.map(function(x){return x.id===id?o:x});else S.clients.push(o);
+  save();closeD();render()};
+ if(id){document.getElementById("na").onclick=function(){closeD();apptDlg();document.getElementById("fc").value=c.name};
+  document.getElementById("rm").onclick=function(){if(confirm("Apagar esta cliente e as suas marcações?")){S.clients=S.clients.filter(function(x){return x.id!==id});S.appts=S.appts.filter(function(x){return x.clientId!==id});save();closeD();render()}}}
+}
+document.querySelectorAll("nav button").forEach(function(b){b.addEventListener("click",function(){tab=b.dataset.t;render()})});
+load();render();
+</script>
+</body>
+</html>
