@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agenda de Estética</title>
+<style>
+:root{--bg:#fbf6f4;--card:#fff;--tx:#3a2a2e;--mut:#8a7479;--ac:#c0577a;--ac2:#f6e3ea;--bd:#ecdde1;--ok:#3d8b6a;--bad:#b4474f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1e1619;--card:#2a2024;--tx:#f3e8eb;--mut:#b09ba0;--ac:#e07a9d;--ac2:#3b2830;--bd:#3d2e33;--ok:#5fc19a;--bad:#e8808a;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 Georgia,"Iowan Old Style",serif}
+button,input,select,textarea{font:inherit;color:inherit}
+main{max-width:640px;margin:0 auto;padding:12px 14px 96px}
+h1{font-size:1.35rem;margin:6px 0 10px;color:var(--ac)}
+h3{margin:14px 0 6px;color:var(--ac)}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav[hidden]{display:none}
+nav button{flex:1;padding:13px 2px;background:none;border:0;color:var(--mut);font-size:.82rem}
+nav button.on{color:var(--ac);font-weight:bold}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--card)}
+textarea{min-height:110px;resize:vertical}
+label{display:block;font-size:.82rem;color:var(--mut);margin:10px 0 4px}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer}
+.btn.ghost{background:var(--ac2);color:var(--ac)}
+.btn.on{background:var(--ac);color:#fff}
+.btn.del{background:none;color:var(--bad);border:1px solid var(--bad)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px 14px;margin-bottom:10px;cursor:pointer}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.t{font-weight:bold;color:var(--ac)}
+.mut{color:var(--mut);font-size:.88rem}
+.tag{font-size:.75rem;padding:2px 8px;border-radius:99px;background:var(--ac2);color:var(--ac)}
+.tag.feita,.tag.confirmada{background:#dff3ea;color:var(--ok)}.tag.cancelada,.tag.recusada{background:#f7e0e2;color:var(--bad)}
+.empty{text-align:center;color:var(--mut);padding:30px 10px}
+dialog{border:0;border-radius:16px;padding:16px;width:min(560px,94vw);background:var(--bg);color:var(--tx);max-height:92vh}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.acts{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}.acts .btn{flex:1}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sum{display:flex;gap:8px;margin-bottom:12px}
+.sum div{flex:1;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:8px 6px;text-align:center}
+.sum b{display:block;color:var(--ac)}
+.slots{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+a{color:var(--ac)}
+</style>
+</head>
+<body>
+<main><h1 id="h">✿ Agenda de Estética</h1><div id="v"></div></main>
+<nav id="nav" hidden>
+<button data-t="pend">Pedidos<span id="bd"></span></button><button data-t="ag">Agenda</button><button data-t="cl">Clientes</button><button data-t="din">Dinheiro</button><button data-t="def">Definições</button>
+</nav>
+<dialog id="dlg"></dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script>
+// ====== CONFIGURAÇÃO: cola aqui os dados do teu projeto Supabase (Project Settings > API) ======
+const CFG={url:"https://ktojprzwfeylkcytsaeq.supabase.co",key:"sb_publishable_-UKQUe6NrG6BrwnLJFAbxA_CTqTZhzt"};
+// ================================================================================================
+const db=CFG.url.startsWith("COLA")?null:supabase.createClient(CFG.url,CFG.key);
+const $=s=>document.getElementById(s),
+esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),
+iso=d=>new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10),
+eur=n=>(Number(n)||0).toFixed(2).replace(".",",")+" €",
+fd=s=>new Date(s+"T12:00").toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long"}),
+mi=t=>{const p=t.split(":");return p[0]*60+ +p[1]},
+hm=n=>String(n/60|0).padStart(2,"0")+":"+String(n%60).padStart(2,"0"),
+sum=(l,f)=>l.reduce((s,a)=>s+(+f(a)||0),0),
+chk=r=>{if(r.error){alert("Erro: "+r.error.message);return true}},
+dlg=$("dlg"),D=h=>{dlg.innerHTML=h;dlg.showModal()},X=()=>dlg.close();
+let S={svc:[],cli:[],ap:[],cfg:{}},tab="pend",day=iso(new Date()),mon=day.slice(0,7),q="";
+
+function wa(a){const p=(a.client_phone||"").replace(/\D/g,"").slice(-9);if(!p)return"";
+ const m="Olá "+(a.client_name||"").split(" ")[0]+"! A sua marcação ("+(a.service||"")+") para "+fd(a.dia)+" às "+a.hora+" está "+(a.status==="pendente"?"recebida":"confirmada")+". Até já!";
+ return "https://wa.me/351"+p+"?text="+encodeURIComponent(m)}
+
+/* ---------- PÁGINA PÚBLICA (clientes): endereço + #marcar ---------- */
+async function pub(){
+ $("h").textContent="✿ Marcar atendimento";
+ const r=await Promise.all([db.from("services").select("*").eq("active",true).order("name"),db.from("settings").select("*").eq("id",1).single()]);
+ S.svc=r[0].data||[];S.cfg=r[1].data||{};let sel="";
+ if(!S.svc.length){$("v").innerHTML='<p class="empty">Marcações online indisponíveis de momento.</p>';return}
+ $("v").innerHTML='<label>Serviço</label><select id="ps">'+S.svc.map(s=>'<option value="'+s.id+'">'+esc(s.name)+" · "+eur(s.price)+" · "+s.duration+" min</option>").join("")+'</select><label>Dia</label><input type="date" id="pd" min="'+iso(new Date())+'"><div id="sl" class="slots"></div><label>Nome</label><input id="pn" autocomplete="name"><label>Telemóvel</label><input id="pp" type="tel" autocomplete="tel"><label>Notas (opcional)</label><textarea id="pm" style="min-height:60px"></textarea><div class="acts"><button class="btn" id="go">Pedir marcação</button></div><p class="mut">O pedido fica pendente até ser confirmado. Receberá resposta por mensagem.</p>';
+ const sl=async()=>{sel="";const d=$("pd").value;if(!d){$("sl").innerHTML="";return}
+  if((S.cfg.closed_days||[]).includes(new Date(d+"T12:00").getDay())){$("sl").innerHTML='<span class="mut">Fechado neste dia.</span>';return}
+  const sv=S.svc.find(s=>s.id===$("ps").value),b=((await db.rpc("busy_slots",{d:d})).data||[]).map(x=>[mi(x.hora),mi(x.hora)+x.duration]);
+  const o=mi(S.cfg.open_time||"09:00"),c=mi(S.cfg.close_time||"19:00"),st=S.cfg.slot_min||30,n=new Date(),nm=n.getHours()*60+n.getMinutes();let h="";
+  for(let t=o;t+sv.duration<=c;t+=st){if(b.some(x=>t<x[1]&&t+sv.duration>x[0]))continue;if(d===iso(n)&&t<=nm)continue;h+='<button class="btn ghost" data-t="'+hm(t)+'">'+hm(t)+"</button>"}
+  $("sl").innerHTML=h||'<span class="mut">Sem horas livres neste dia.</span>'};
+ $("ps").onchange=sl;$("pd").onchange=sl;
+ $("sl").onclick=e=>{const b=e.target.closest("[data-t]");if(!b)return;sel=b.dataset.t;$("sl").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b))};
+ $("go").onclick=async()=>{const n=$("pn").value.trim(),p=$("pp").value.trim(),d=$("pd").value;
+  if(!d||!sel||!n||p.replace(/\D/g,"").length<9)return alert("Escolhe o dia e a hora e indica nome e telemóvel (9 dígitos).");
+  const sv=S.svc.find(s=>s.id===$("ps").value);$("go").disabled=true;
+  const r=await db.from("appointments").insert({client_name:n,client_phone:p,service_id:sv.id,service:sv.name,price:sv.price,duration:sv.duration,dia:d,hora:sel,notes:$("pm").value.trim().slice(0,300),status:"pendente",source:"cliente"});
+  if(r.error){$("go").disabled=false;return alert("Não foi possível enviar. Tenta novamente.")}
+  $("v").innerHTML='<div class="card" style="cursor:default"><h3 style="margin-top:0">Pedido enviado ✿</h3><p>'+esc(sv.name)+" · "+fd(d)+" às "+sel+'.</p><p class="mut">Fica pendente até ser confirmado.</p></div>'}
+}
+
+/* ---------- ÁREA PRIVADA ---------- */
+function login(){
+ $("v").innerHTML='<label>Email</label><input id="le" type="email" autocomplete="username"><label>Palavra-passe</label><input id="lp" type="password" autocomplete="current-password"><div class="acts"><button class="btn" id="lg">Entrar</button></div>';
+ $("lg").onclick=async()=>{const r=await db.auth.signInWithPassword({email:$("le").value.trim(),password:$("lp").value});if(r.error)return alert("Email ou palavra-passe incorretos.");start()}}
+async function load(){
+ const r=await Promise.all([db.from("services").select("*").order("name"),db.from("clients").select("*").order("name"),db.from("appointments").select("*").order("dia").order("hora"),db.from("settings").select("*").eq("id",1).single()]);
+ S.svc=r[0].data||[];S.cli=r[1].data||[];S.ap=r[2].data||[];S.cfg=r[3].data||{}}
+async function start(){$("nav").hidden=false;await load();render()}
+function render(){
+ const p=S.ap.filter(a=>a.status==="pendente").length;$("bd").textContent=p?" ("+p+")":"";
+ document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===tab));
+ $("v").innerHTML={pend:vPend,ag:vAg,cl:vCl,din:vDin,def:vDef}[tab]()}
+const card=a=>{const w=wa(a);return '<div class="card" data-a="ap" data-i="'+a.id+'"><div class="row"><span><span class="t">'+a.hora+"</span> "+esc(a.client_name)+'</span><span class="tag '+a.status+'">'+a.status+'</span></div><div class="mut">'+(a.status==="feita"||a.status==="confirmada"?fd(a.dia)+" · ":"")+esc(a.service)+" · "+eur(a.price)+" · "+((+a.paid)>=(+a.price)&&+a.price>0?"paga":"pago "+eur(a.paid))+"</div>"+(a.notes?'<div class="mut">📝 '+esc(a.notes)+"</div>":"")+(w?'<a href="'+w+'" target="_blank" rel="noopener">WhatsApp</a>':"")+"</div>"};
+function vPend(){const l=S.ap.filter(a=>a.status==="pendente");
+ return l.length?l.map(a=>'<div class="card" style="cursor:default"><div class="row"><b>'+esc(a.client_name)+'</b><span class="tag">pendente</span></div><div>'+fd(a.dia)+" às "+a.hora+'</div><div class="mut">'+esc(a.service)+" · "+eur(a.price)+(a.client_phone?" · "+esc(a.client_phone):"")+"</div>"+(a.notes?'<div class="mut">📝 '+esc(a.notes)+"</div>":"")+'<div class="acts"><button class="btn" data-a="ok" data-i="'+a.id+'">Aprovar</button><button class="btn del" data-a="no" data-i="'+a.id+'">Recusar</button><button class="btn ghost" data-a="ap" data-i="'+a.id+'">Editar</button></div></div>').join(""):'<div class="empty">Sem pedidos pendentes ✿</div>'}
+function vAg(){const l=S.ap.filter(a=>a.dia===day&&a.status!=="recusada"&&a.status!=="pendente").sort((a,b)=>a.hora<b.hora?-1:1),k=l.filter(a=>a.status!=="cancelada");
+ return '<div class="bar"><button class="btn ghost" data-a="prev">‹</button><input type="date" id="dd" value="'+day+'"><button class="btn ghost" data-a="next">›</button><button class="btn ghost" data-a="hoje">Hoje</button></div><div class="mut" style="text-transform:capitalize;margin:-4px 0 8px">'+fd(day)+'</div><div class="sum"><div><b>'+k.length+'</b><span class="mut">marcações</span></div><div><b>'+eur(sum(k,a=>a.price))+'</b><span class="mut">previsto</span></div><div><b>'+eur(sum(k,a=>a.paid))+'</b><span class="mut">recebido</span></div></div>'+(l.length?l.map(card).join(""):'<div class="empty">Sem marcações neste dia.</div>')+'<div class="acts"><button class="btn" data-a="newap">+ Nova marcação</button></div>'}
+function vCl(){const l=S.cli.filter(c=>(c.name+" "+c.phone).toLowerCase().includes(q.toLowerCase()));
+ return '<div class="bar"><input id="q" placeholder="Pesquisar cliente…" value="'+esc(q)+'"><button class="btn" data-a="newcli">+</button></div>'+(l.length?l.map(c=>'<div class="card" data-a="cli" data-i="'+c.id+'"><div class="row"><b>'+esc(c.name)+'</b><span class="mut">'+S.ap.filter(a=>a.client_id===c.id).length+' marc.</span></div><div class="mut">'+esc(c.phone||"sem telemóvel")+"</div>"+(c.notes?'<div class="mut">'+esc(c.notes.slice(0,90))+(c.notes.length>90?"…":"")+"</div>":"")+"</div>").join(""):'<div class="empty">Sem clientes.</div>')}
+function vDin(){const l=S.ap.filter(a=>a.dia.startsWith(mon)&&(a.status==="confirmada"||a.status==="feita")),by={},por=S.ap.filter(a=>a.status==="feita"&&(+a.paid||0)<(+a.price||0));
+ l.forEach(a=>{if(+a.paid){const k=a.pay_method||"sem método";by[k]=(by[k]||0)+ +a.paid}});
+ return '<div class="bar"><input type="month" id="mm" value="'+mon+'"></div><div class="sum"><div><b>'+eur(sum(l,a=>a.paid))+'</b><span class="mut">recebido</span></div><div><b>'+eur(sum(l,a=>a.price))+'</b><span class="mut">previsto no mês</span></div></div>'+Object.keys(by).map(k=>'<div class="row mut"><span>'+esc(k)+"</span><span>"+eur(by[k])+"</span></div>").join("")+"<h3>Por cobrar · "+eur(sum(por,a=>a.price-a.paid))+"</h3>"+(por.length?por.map(card).join(""):'<div class="empty">Nada por cobrar ✿</div>')}
+function vDef(){const c=S.cfg,days=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"],cd=c.closed_days||[],link=location.origin+location.pathname+"#marcar";
+ return "<h3>Serviços</h3>"+S.svc.map(s=>'<div class="card" style="cursor:default" data-s="'+s.id+'"><input data-f="name" value="'+esc(s.name)+'"><div class="g2" style="margin-top:6px"><input data-f="price" type="number" step=".5" placeholder="Preço €" value="'+s.price+'"><input data-f="duration" type="number" placeholder="Minutos" value="'+s.duration+'"></div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-f="active" style="width:auto" '+(s.active?"checked":"")+'> Visível na marcação online<button class="btn del" data-a="delsvc" data-i="'+s.id+'" style="margin-left:auto">Apagar</button></label></div>').join("")+'<button class="btn ghost" data-a="newsvc">+ Serviço</button><h3>Horário</h3><div class="g2"><div><label>Abre</label><input type="time" data-c="open_time" value="'+(c.open_time||"09:00")+'"></div><div><label>Fecha</label><input type="time" data-c="close_time" value="'+(c.close_time||"19:00")+'"></div></div><label>Intervalo entre horas (min)</label><input type="number" data-c="slot_min" value="'+(c.slot_min||30)+'"><label>Dias de descanso</label><div class="row" style="justify-content:flex-start;flex-wrap:wrap;gap:12px">'+days.map((d,i)=>'<label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" style="width:auto" data-c="cd" data-cd="'+i+'" '+(cd.includes(i)?"checked":"")+">"+d+"</label>").join("")+'</div><h3>Link para as clientes</h3><input readonly value="'+link+'" onclick="this.select()"><div class="acts"><button class="btn ghost" data-a="copy">Copiar link</button><button class="btn del" data-a="out">Terminar sessão</button></div>'}
+
+async function setSt(id,st){const a=S.ap.find(x=>x.id===id),p={status:st};
+ if(st==="confirmada"&&!a.client_id){const ph=(a.client_phone||"").replace(/\D/g,"").slice(-9);let c=ph&&S.cli.find(x=>(x.phone||"").replace(/\D/g,"").slice(-9)===ph);
+  if(!c){const r=await db.from("clients").insert({name:a.client_name,phone:a.client_phone||""}).select().single();if(chk(r))return;c=r.data}p.client_id=c.id}
+ if(chk(await db.from("appointments").update(p).eq("id",id)))return;await load();render()}
+
+function apDlg(id){
+ const a=id?S.ap.find(x=>x.id===id):{dia:day,hora:"10:00",service:"",price:"",duration:60,status:"confirmada",paid:0,pay_method:"",notes:""},c=S.cli.find(x=>x.id===a.client_id);
+ D('<h3 style="margin-top:0">'+(id?"Editar":"Nova")+' marcação</h3><label>Cliente</label><input id="fc" list="cl" value="'+esc(c?c.name:a.client_name||"")+'"><datalist id="cl">'+S.cli.map(x=>'<option value="'+esc(x.name)+'">').join("")+'</datalist><div class="g2"><div><label>Data</label><input type="date" id="fd" value="'+a.dia+'"></div><div><label>Hora</label><input type="time" id="ft" value="'+a.hora+'"></div></div><label>Serviço</label><select id="fs"><option value="">—</option>'+S.svc.map(s=>'<option value="'+s.id+'">'+esc(s.name)+"</option>").join("")+'</select><div class="g2"><div><label>Preço (€)</label><input type="number" step=".5" id="fp" value="'+(a.price==null?"":a.price)+'"></div><div><label>Duração (min)</label><input type="number" id="fu" value="'+a.duration+'"></div></div><label>Estado</label><select id="fe">'+["pendente","confirmada","feita","cancelada","recusada"].map(s=>"<option>"+s+"</option>").join("")+'</select><div class="g2"><div><label>Já pago (€)</label><input type="number" step=".5" id="fa" value="'+(a.paid||0)+'"></div><div><label>Método</label><select id="fm">'+["","dinheiro","MB Way","cartão","transferência"].map(s=>"<option>"+s+"</option>").join("")+'</select></div></div><button class="btn ghost" id="full" style="margin-top:8px">Pago na totalidade</button><label>Notas</label><textarea id="fn" style="min-height:60px">'+esc(a.notes)+'</textarea><div class="acts"><button class="btn" id="ok">Guardar</button><button class="btn ghost" id="no">Fechar</button>'+(id?'<button class="btn del" id="rm">Apagar</button>':"")+"</div>");
+ $("fs").value=a.service_id||"";$("fe").value=a.status;$("fm").value=a.pay_method||"";
+ $("fs").onchange=()=>{const s=S.svc.find(x=>x.id===$("fs").value);if(s){$("fp").value=s.price;$("fu").value=s.duration}};
+ $("full").onclick=()=>{$("fa").value=$("fp").value||0;if(!$("fm").value)$("fm").focus()};
+ $("no").onclick=X;
+ $("ok").onclick=async()=>{const nm=$("fc").value.trim();if(!nm)return alert("Indica a cliente.");
+  let c2=S.cli.find(x=>x.name.toLowerCase()===nm.toLowerCase());
+  if(!c2){const r=await db.from("clients").insert({name:nm,phone:a.client_phone||""}).select().single();if(chk(r))return;c2=r.data}
+  const o={client_id:c2.id,client_name:nm,client_phone:c2.phone||a.client_phone||"",dia:$("fd").value,hora:$("ft").value,service_id:$("fs").value||null,service:$("fs").value?$("fs").selectedOptions[0].text:a.service,price:+$("fp").value||0,duration:+$("fu").value||60,status:$("fe").value,paid:+$("fa").value||0,pay_method:$("fm").value,notes:$("fn").value.trim()};
+  if(chk(id?await db.from("appointments").update(o).eq("id",id):await db.from("appointments").insert(Object.assign({source:"admin"},o))))return;
+  day=o.dia;await load();X();render()};
+ if(id)$("rm").onclick=async()=>{if(confirm("Apagar esta marcação?")){if(chk(await db.from("appointments").delete().eq("id",id)))return;await load();X();render()}}}
+
+function clDlg(id){
+ const c=id?S.cli.find(x=>x.id===id):{name:"",phone:"",notes:""},h=id?S.ap.filter(a=>a.client_id===id).sort((a,b)=>(b.dia+b.hora).localeCompare(a.dia+a.hora)):[];
+ D('<h3 style="margin-top:0">'+(id?"Cliente":"Nova cliente")+'</h3><label>Nome</label><input id="cn" value="'+esc(c.name)+'"><label>Telemóvel</label><input id="cp" type="tel" value="'+esc(c.phone)+'"><label>Notas (alergias, preferências, produtos…)</label><textarea id="cm">'+esc(c.notes)+"</textarea>"+(h.length?"<label>Histórico</label>"+h.map(a=>'<div class="mut">'+a.dia.split("-").reverse().join("/")+" · "+esc(a.service||"—")+" · "+a.status+" · "+eur(a.paid)+"/"+eur(a.price)+"</div>").join(""):"")+'<div class="acts"><button class="btn" id="ok">Guardar</button><button class="btn ghost" id="no">Fechar</button>'+(id?'<button class="btn ghost" id="na">+ Marcação</button><button class="btn del" id="rm">Apagar</button>':"")+"</div>");
+ $("no").onclick=X;
+ $("ok").onclick=async()=>{const nm=$("cn").value.trim();if(!nm)return alert("Indica o nome.");const o={name:nm,phone:$("cp").value.trim(),notes:$("cm").value.trim()};
+  if(chk(id?await db.from("clients").update(o).eq("id",id):await db.from("clients").insert(o)))return;await load();X();render()};
+ if(id){$("na").onclick=()=>{X();apDlg();$("fc").value=c.name};
+  $("rm").onclick=async()=>{if(confirm("Apagar esta cliente? As marcações ficam no histórico.")){if(chk(await db.from("clients").delete().eq("id",id)))return;await load();X();render()}}}}
+
+function bindAdmin(){
+ const sh=n=>{const d=new Date(day+"T12:00");d.setDate(d.getDate()+n);day=iso(d);render()};
+ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
+ $("v").onclick=async e=>{if(e.target.closest("a")||!$("nav").hidden===false)return;const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a,i=b.dataset.i;
+  if(a==="prev")sh(-1);else if(a==="next")sh(1);else if(a==="hoje"){day=iso(new Date());render()}
+  else if(a==="newap")apDlg();else if(a==="ap")apDlg(i);else if(a==="newcli")clDlg();else if(a==="cli")clDlg(i);
+  else if(a==="ok")setSt(i,"confirmada");else if(a==="no"){if(confirm("Recusar este pedido?"))setSt(i,"recusada")}
+  else if(a==="newsvc"){if(chk(await db.from("services").insert({name:"Novo serviço",price:0,duration:30})))return;await load();render()}
+  else if(a==="delsvc"){if(confirm("Apagar este serviço?")){if(chk(await db.from("services").delete().eq("id",i)))return;await load();render()}}
+  else if(a==="copy"){try{await navigator.clipboard.writeText(location.origin+location.pathname+"#marcar");alert("Link copiado.")}catch(x){}}
+  else if(a==="out"){await db.auth.signOut();location.reload()}};
+ $("v").onchange=async e=>{const t=e.target;
+  if(t.id==="dd"&&t.value){day=t.value;return render()}
+  if(t.id==="mm"&&t.value){mon=t.value;return render()}
+  const s=t.closest("[data-s]");
+  if(s&&t.dataset.f){const v=t.type==="checkbox"?t.checked:t.type==="number"?+t.value:t.value.trim();chk(await db.from("services").update({[t.dataset.f]:v}).eq("id",s.dataset.s));return load()}
+  if(t.dataset.c){const g=k=>document.querySelector('[data-c="'+k+'"]').value,o={open_time:g("open_time"),close_time:g("close_time"),slot_min:+g("slot_min")||30,closed_days:[...document.querySelectorAll("[data-cd]")].filter(x=>x.checked).map(x=>+x.dataset.cd)};
+   if(!chk(await db.from("settings").update(o).eq("id",1)))S.cfg=Object.assign(S.cfg,o)}};
+ $("v").oninput=e=>{if(e.target.id==="q"){q=e.target.value;const p=e.target.selectionStart;render();const n=$("q");n.focus();n.setSelectionRange(p,p)}}}
+
+(async function init(){
+ if(!db){$("v").innerHTML='<p class="empty">Falta colar o URL e a chave do Supabase no topo do ficheiro index.html.</p>';return}
+ window.addEventListener("hashchange",()=>location.reload());
+ if(location.hash==="#marcar")return pub();
+ bindAdmin();
+ const s=await db.auth.getSession();s.data.session?start():login()})();
+</script>
+</body>
+</html>
